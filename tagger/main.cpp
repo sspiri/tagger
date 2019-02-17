@@ -14,6 +14,9 @@
 #include "taglib/tag.h"
 #include "taglib/tpropertymap.h"
 
+// qt upgrade
+#include <QApplication>
+#include "main_window.hpp"
 
 
 namespace po = boost::program_options;
@@ -22,17 +25,6 @@ namespace tl = TagLib;
 
 static po::options_description description{"Available options"};
 static po::variables_map options;
-
-
-std::wstring towstr(const std::string& s){
-	std::wstring result(s.size(), L'\0');
-	std::size_t size = std::mbstowcs(&result[0], s.data(), s.size());
-
-	if(result.size() > size)
-		result.resize(size);
-
-	return result;
-}
 
 
 std::optional<tl::FileRef> make_fileref(const std::string& fp){
@@ -48,19 +40,19 @@ std::optional<tl::FileRef> make_fileref(const std::string& fp){
 
 
 struct id3_entry{
-	std::wstring name;
-	std::vector<std::wstring> values;
+	std::string name;
+	std::vector<std::string> values;
 
-	id3_entry(const std::wstring& n = L"", const std::vector<std::wstring>& vals = {})
+	id3_entry(const std::string& n = "", const std::vector<std::string>& vals = {})
 		: name{n}, values{vals} {}
 
 	id3_entry(const std::pair<const tl::String, tl::StringList>& entry)
-		: name{entry.first.toWString()}{
+		: name{entry.first.to8Bit()}{
 
 		values.reserve(entry.second.size());
 
 		std::transform(entry.second.begin(), entry.second.end(), std::back_inserter(values), [](const tl::String& s){
-			return s.toWString();
+			return s.to8Bit();
 		});
 	}
 
@@ -69,11 +61,11 @@ struct id3_entry{
 		values.clear();
 	}
 
-	std::wstring debug() const{
-		std::wstring s = name + L" =";
+	std::string debug() const{
+		std::string s = name + " =";
 
 		for(const auto& value : values)
-			s += L" '" + boost::replace_all_copy(value, "'", "\\'") + L'\'';
+			s += " '" + boost::replace_all_copy(value, "'", "\\'") + '\'';
 
 		return s;
 	}
@@ -90,14 +82,14 @@ struct id3_entry{
 
 
 
-std::wistream& parse_name(std::wistream& in, std::wstring& name){
+std::istream& parse_name(std::istream& in, std::string& name){
 	name.clear();
 
-	wchar_t c{};
+	char c{};
 
-	while(in.get(c) && c != L'='){
-		if(c == L'\\' && in.peek() == L'='){
-			name += L'=';
+	while(in.get(c) && c != '='){
+		if(c == '\\' && in.peek() == '='){
+			name += '=';
 			in.get();
 		}
 
@@ -105,7 +97,7 @@ std::wistream& parse_name(std::wistream& in, std::wstring& name){
 			name += c;
 	}
 
-	if(c == L'='){
+	if(c == '='){
 		in.putback(c);
 		in.clear();
 	}
@@ -115,11 +107,11 @@ std::wistream& parse_name(std::wistream& in, std::wstring& name){
 
 
 namespace detail{
-	bool is_next(std::wistream& stream, const std::wstring& any){
+	bool is_next(std::istream& stream, const std::string& any){
 		auto old_state = stream.rdstate();
 		auto old_pos = stream.tellg();
 
-		wchar_t next;
+		char next;
 		stream >> next;
 
 		stream.seekg(old_pos, std::ios::beg);
@@ -130,14 +122,14 @@ namespace detail{
 }
 
 
-std::wistream& parse_values(std::wistream& in, std::vector<std::wstring>& values){
+std::istream& parse_values(std::istream& in, std::vector<std::string>& values){
 	values.clear();
 
-	if(detail::is_next(in, L"\"'")){
-		std::wstring s;
-		wchar_t delim;
+	if(detail::is_next(in, "\"'")){
+		std::string s;
+		char delim;
 
-		while(detail::is_next(in, L"\"'") && in >> delim && in.putback(delim) >> std::quoted(s, delim))
+		while(detail::is_next(in, "\"'") && in >> delim && in.putback(delim) >> std::quoted(s, delim))
 			values.push_back(std::move(s));
 
 		in.clear();
@@ -146,30 +138,30 @@ std::wistream& parse_values(std::wistream& in, std::vector<std::wstring>& values
 
 	values.push_back({});
 
-	if(!std::getline(in, values.back(), L';'))
+	if(!std::getline(in, values.back(), ';'))
 		return in;
 
-	boost::trim_if(values.back(), std::bind(&std::isspace<wchar_t>, std::placeholders::_1, std::locale("")));
+	boost::trim_if(values.back(), std::bind(&std::isspace<char>, std::placeholders::_1, std::locale("")));
 	return in;
 }
 
 
 
-std::wistream& operator>> (std::wistream& in, id3_entry& tag){
+std::istream& operator>> (std::istream& in, id3_entry& tag){
 	tag.clear();
 
 	if(!parse_name(in, tag.name))
 		return in;
 
-	boost::trim_if(tag.name, std::bind(&std::isspace<wchar_t>, std::placeholders::_1, std::locale("")));
+	boost::trim_if(tag.name, std::bind(&std::isspace<char>, std::placeholders::_1, std::locale("")));
 
-	assert(in.peek() == L'=');
+	assert(in.peek() == '=');
 	in.get();
 
 	if(!parse_values(in, tag.values))
 		return in;
 
-	if(in.peek() == L';')
+	if(in.peek() == ';')
 		in.get();
 
 	in.clear();
@@ -182,11 +174,11 @@ std::vector<id3_entry> make_id3_entries(const tl::PropertyMap& map){
 	results.reserve(map.size());
 
 	for(const auto& it : map){
-		results.push_back({it.first.toWString(), {}});
+		results.push_back({it.first.to8Bit(), {}});
 		results.back().values.reserve(it.second.size());
 
 		std::transform(it.second.begin(), it.second.end(), std::back_inserter(results.back().values), [](const tl::String& s){
-			return s.toWString();
+			return s.to8Bit();
 		});
 	}
 
@@ -200,7 +192,7 @@ void show_all(const std::vector<std::string>& files){
 			std::cout << "For [" << fp << "]:\n";
 
 			for(const auto& entry : make_id3_entries(ref->tag()->properties()))
-				std::wcout << entry.debug() << '\n';
+				std::cout << entry.debug() << '\n';
 		}
 	}
 }
@@ -219,19 +211,19 @@ void clear_tags(const std::vector<std::string>& files){
 }
 
 
-std::vector<std::wstring> get_ids(const std::wstring& line){
-	std::wstringstream wss(line);
-	std::vector<std::wstring> res;
-	std::wstring id;
+std::vector<std::string> get_ids(const std::string& line){
+	std::stringstream wss(line);
+	std::vector<std::string> res;
+	std::string id;
 
-	while(std::getline(wss, id, L';'))
-		res.push_back(boost::trim_copy_if(id, std::bind(&std::isspace<wchar_t>, std::placeholders::_1, std::locale(""))));
+	while(std::getline(wss, id, ';'))
+		res.push_back(boost::trim_copy_if(id, std::bind(&std::isspace<char>, std::placeholders::_1, std::locale(""))));
 
 	return res;
 }
 
 
-void get_tags(const std::vector<std::string>& files, const std::wstring& line){
+void get_tags(const std::vector<std::string>& files, const std::string& line){
 	auto ids = get_ids(line);
 
 	for(const auto& fp : files){
@@ -242,21 +234,21 @@ void get_tags(const std::vector<std::string>& files, const std::wstring& line){
 				auto it = map.find(id);
 
 				if(it == map.end())
-					std::wcerr << "No tag found for '" << id << "': [" << towstr(fp) << "]\n";
+					std::cerr << "No tag found for '" << id << "': [" << fp << "]\n";
 				else
-					std::wcout << id3_entry{*it}.debug() << '\n';
+					std::cout << id3_entry{*it}.debug() << '\n';
 			}
 		}
 	}
 }
 
 
-void set_tags(const std::vector<std::string>& files, const std::wstring& line){
-	std::wstringstream wss{line};
+void set_tags(const std::vector<std::string>& files, const std::string& line){
+	std::stringstream ss{line};
 	std::vector<id3_entry> entries;
 	id3_entry item;
 
-	while(wss >> item)
+	while(ss >> item)
 		entries.push_back(std::move(item));
 
 	for(const auto& fp : files){
@@ -281,10 +273,22 @@ void set_tags(const std::vector<std::string>& files, const std::wstring& line){
 }
 
 
+int launch_qt_session(const std::vector<std::string>& file_paths, int argc, char** argv){
+	QApplication ui{argc, argv};
+
+	main_window window{file_paths};
+	window.setMinimumWidth(500);
+	window.show();
+
+	return ui.exec();
+}
+
+
 
 void setup_options_description(){
 	description.add_options()
 		("help,h", "produce this help message")
+		("qt,q", po::value<bool>()->zero_tokens()->default_value(false), "launch a graphical user interface")
 		("file,i", po::value<std::vector<std::string>>()->multitoken(), "specify one or more files to operate on")
 		("get,g", po::value<std::string>(), "get IDx tag information")
 		("set,s", po::value<std::string>(), "set IDx tag information")
@@ -300,7 +304,10 @@ std::vector<std::string> parse_command_line(int argc, char** argv){
 }
 
 
-int process_options(const std::vector<std::string>& unknown){
+int process_options(const std::vector<std::string>& unknown, int argc, char** argv){
+	if(argc == 1)	// no option specified
+		return launch_qt_session({}, argc, argv);
+
 	if(!options.count("file") && !unknown.size()){
 		std::cerr << description;
 		return -2;
@@ -319,16 +326,19 @@ int process_options(const std::vector<std::string>& unknown){
 	files.reserve(files.size() + unknown.size());
 	std::copy(unknown.begin(), unknown.end(), std::back_inserter(files));
 
+	if(options["qt"].as<bool>())
+		return launch_qt_session(files, argc, argv);
+
 	if(!options.count("get") && !options.count("set") && !options.count("clear")){
 		show_all(files);
 		return 0;
 	}
 
 	if(options.count("get"))
-		get_tags(files, towstr(options["get"].as<std::string>()));
+		get_tags(files, options["get"].as<std::string>());
 
 	if(options.count("set"))
-		set_tags(files, towstr(options["set"].as<std::string>()));
+		set_tags(files, options["set"].as<std::string>());
 
 	if(options.count("clear"))
 		clear_tags(files);
@@ -339,11 +349,11 @@ int process_options(const std::vector<std::string>& unknown){
 
 int main(int argc, char** argv) try{
 	std::locale::global(std::locale(""));
-	std::wcout.imbue(std::locale(""));
-	std::wcerr.imbue(std::locale(""));
+	std::cout.imbue(std::locale(""));
+	std::cerr.imbue(std::locale(""));
 
 	setup_options_description();
-	return process_options(parse_command_line(argc, argv));
+	return process_options(parse_command_line(argc, argv), argc, argv);
 }
 
 
