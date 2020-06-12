@@ -15,9 +15,9 @@ Available options:
  ## Examples:
  ```
  tagger track.mp3 --set 'artist=ACDC; genre=Rock; title=Back in Black' # set some tags
- tagger track.mp3				# view all tags
- tagger -c track.mp3			# clear all tags
- tagger -g 'artist' track.mp3	# show 'artist' tag
- tagger -s 'genre="Rock" "Hard rock"' -i track.mp3	# set multiple values if the format allows it
+ tagger track.mp3                                                      # view all tags
+ tagger -c track.mp3                                                   # clear all tags
+ tagger -g 'artist' track.mp3                                          # show 'artist' tag
+ tagger -s 'genre="Rock" "Hard rock"' -i track.mp3                     # set multiple values if the format allows it
  ```
  
