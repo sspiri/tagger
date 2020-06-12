@@ -8,9 +8,9 @@ QMAKE_CXXFLAGS += -std=c++17
 LIBS += -ltag -lboost_program_options -lstdc++
 
 SOURCES += \
-		main.cpp
+    main.cpp
 
 HEADERS += \
-	file.hpp \
-	main_window.hpp \
+    file.hpp \
+    main_window.hpp \
     tag_editor.hpp

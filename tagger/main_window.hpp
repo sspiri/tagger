@@ -40,7 +40,7 @@ private:
 		auto* editor = new tag_editor{this, fileref};
 
 		editors_map[fileref] = editor;
-		tabs->addTab(editor, QFileInfo{fp.c_str()}.baseName());
+        tabs->addTab(editor, QFileInfo{fp.c_str()}.fileName());
 
 		connect(fileref, &file::error, this, &main_window::show_error);
 
@@ -55,12 +55,17 @@ private:
 		connect(editor->clear, &QPushButton::clicked, editor, &tag_editor::clear_inputs);
 
 		connect(editor->reset, &QPushButton::clicked, std::bind(&main_window::reset_file, this, fileref));
-		connect(editor->reset, &QPushButton::clicked, std::bind(&tag_editor::reset_inputs, editor, std::cref(fileref->properties)));
+		connect(editor->reset, &QPushButton::clicked, std::bind(&tag_editor::set_inputs, editor, std::cref(fileref->properties)));
 	}
 
 	void show_error(const QString& message){
 		QMessageBox::critical(this, "Error", message);
 	}
+
+    void save_all(){
+        for(auto& pair : editors_map)
+            pair.first->save();
+    }
 
 	void save_file(file* fp){
 		fp->save();
@@ -78,6 +83,7 @@ private:
 		QMenu* menu = menuBar()->addMenu("File");
 
 		connect(menu->addAction("Open..."), &QAction::triggered, this, &main_window::select_open_files);
+        connect(menu->addAction("Save all"), &QAction::triggered, this, &main_window::save_all);
 		connect(menu->addAction("Exit"), &QAction::triggered, this, &QWidget::close);
 	}
 

@@ -146,7 +146,6 @@ std::istream& parse_values(std::istream& in, std::vector<std::string>& values){
 }
 
 
-
 std::istream& operator>> (std::istream& in, id3_entry& tag){
 	tag.clear();
 
@@ -155,7 +154,11 @@ std::istream& operator>> (std::istream& in, id3_entry& tag){
 
 	boost::trim_if(tag.name, std::bind(&std::isspace<char>, std::placeholders::_1, std::locale("")));
 
-	assert(in.peek() == '=');
+	if(in.peek() != '='){
+		in.setstate(std::ios::failbit);
+		return in;
+	}
+
 	in.get();
 
 	if(!parse_values(in, tag.values))
