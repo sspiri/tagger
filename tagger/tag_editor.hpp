@@ -68,12 +68,8 @@ public slots:
 		genre->setText("");
 	}
 
-	void reset_inputs(const tl::PropertyMap& properties){
-		set_inputs(properties);
-	}
-
 	void set_inputs(const tl::PropertyMap& properties){
-		artist->setText(properties["ARTIST"].toString(";").toCString());
+        artist->setText(properties["ARTIST"].toString(";").toCString());
 		album->setText(properties["ALBUM"].toString(";").toCString());
 		title->setText(properties["TITLE"].toString(";").toCString());
 		genre->setText(properties["GENRE"].toString(";").toCString());
